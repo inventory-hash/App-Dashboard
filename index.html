@@ -251,15 +251,11 @@
       <div class="stat-value c-amber" id="stat-filtered">—</div>
       <div class="stat-sub">rows visible</div>
     </div>
-  </div>
-
-  <!-- Toolbar -->
-  <div class="toolbar">
-    <input class="search-box" id="search-input" placeholder="Search across all columns…" oninput="applyFilter()" />
-    <select class="search-box" id="col-filter" style="flex:0;min-width:140px;" onchange="applyFilter()">
-      <option value="">All columns</option>
-    </select>
-    <button class="btn secondary" onclick="exportCSV()">⬇ Export CSV</button>
+    <div class="stat-card">
+      <div class="stat-label">Report Period</div>
+      <div class="stat-value c-amber" id="stat-period" style="font-size: 1.4rem;">—</div>
+      <div class="stat-sub">Current Month</div>
+    </div>
   </div>
 
   <!-- Table -->
@@ -271,7 +267,11 @@
     </div>
   </div>
 
-  <div class="pagination" id="pagination"></div>
+  <!-- Consolidated Report -->
+  <h2 style="font-size: 1.2rem; margin-top: 2rem; margin-bottom: 1rem;">Agent-wise Report (Current Month)</h2>
+  <div class="table-wrap">
+    <div id="consolidated-table-container"></div>
+  </div>
 </main>
 
 <!-- Add/Edit Modal -->
@@ -291,17 +291,24 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbz46hQW9QxRqnVYUdLg3BrLzn7KAKTzUM10TqE3iYZWZ-NOeknNglkxV851YkRSakE5vg/exec";
+// Use a predefined list of headers for consistency.
+const PREDEFINED_HEADERS = [
+  "Date",
+  "Restaurant ID",
+  "Restaurant/Kitchen Name",
+  "Contact Number",
+  "Status",
+  "Agent Name"
+];
 let allData   = [];
-let headers   = [];
-let filtered  = [];
-let sortCol   = "";
-let sortAsc   = true;
-let currentPage = 1;
-const PAGE_SIZE = 20;
+let headers   = PREDEFINED_HEADERS;
 let editRowIndex = null;
 
 // ── Bootstrap ─────────────────────────────────────────────
 document.getElementById("setup-banner").classList.add("hidden");
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const currentMonthName = monthNames[new Date().getMonth()];
+document.getElementById("stat-period").textContent = currentMonthName;
 fetchData();
 
 // ── Fetch ─────────────────────────────────────────────────
@@ -313,10 +320,13 @@ async function fetchData() {
     const res  = await fetch(API_URL, { redirect: "follow" });
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
-    allData = json.data;
-    headers = allData.length ? Object.keys(allData[0]) : [];
-    buildColFilter();
-    applyFilter();
+
+    // Ensure all rows have all predefined headers.
+    allData = json.data.map(row => {
+      const newRow = {};
+      headers.forEach(h => newRow[h] = row[h] ?? '');
+      return newRow;
+    });
     document.getElementById("stat-rows").textContent = allData.length;
     document.getElementById("stat-cols").textContent = headers.length;
     document.getElementById("last-sync").textContent =
@@ -324,89 +334,66 @@ async function fetchData() {
   } catch (e) {
     setError("Failed to fetch data: " + e.message);
   }
-}
-
-// ── Filter & Sort ─────────────────────────────────────────
-
-function applyFilter() {
-  const q   = document.getElementById("search-input").value.toLowerCase();
-  const col = document.getElementById("col-filter").value;
-  filtered = allData.filter(row => {
-    const target = col ? String(row[col]) : Object.values(row).join(" ");
-    return target.toLowerCase().includes(q);
-  });
-  if (sortCol) {
-    filtered.sort((a, b) => {
-      const va = a[sortCol], vb = b[sortCol];
-      const cmp = isNaN(va) || isNaN(vb)
-        ? String(va).localeCompare(String(vb))
-        : Number(va) - Number(vb);
-      return sortAsc ? cmp : -cmp;
-    });
-  }
-  currentPage = 1;
-  document.getElementById("stat-filtered").textContent = filtered.length;
-  renderTable();
-}
-
-// ── Render ────────────────────────────────────────────────
-
-function renderTable() {
-  const start = (currentPage - 1) * PAGE_SIZE;
-  const page  = filtered.slice(start, start + PAGE_SIZE);
-  if (!headers.length) { setLoading(false); return; }
-  const tableHTML = `
-    <table>
-      <thead><tr>
-        <th style="width:40px">#</th>
-        ${headers.map(h => `
-          <th onclick="toggleSort('${h}')" class="${sortCol===h?'active':''}">
-            ${esc(h)} <span class="sort-icon">${sortCol===h?(sortAsc?'▲':'▼'):'⇅'}</span>
-          </th>`).join("")}
-        <th>Actions</th>
-      </tr></thead>
-      <tbody>
-        ${page.length ? page.map((row, i) => {
-          const sheetRow = allData.indexOf(row) + 2; // +2 for header row
-          return `<tr>
-            <td class="row-num">${start + i + 1}</td>
-            ${headers.map(h => `<td>${formatCell(row[h])}</td>`).join("")}
-            <td>
-              <div class="action-cell">
-                <button class="icon-btn" onclick="openEditModal(${sheetRow})">✎ Edit</button>
-                <button class="icon-btn del" onclick="deleteRow(${sheetRow})">✕</button>
-              </div>
-            </td>
-          </tr>`;
-        }).join("") : `<tr><td colspan="${headers.length + 2}" class="state-msg">No matching rows.</td></tr>`}
-      </tbody>
-    </table>`;
-  document.getElementById("table-container").innerHTML = tableHTML;
-  renderPagination();
+  renderConsolidatedReport();
   setLoading(false);
 }
 
-function renderPagination() {
-  const total = Math.ceil(filtered.length / PAGE_SIZE);
-  const el    = document.getElementById("pagination");
-  if (total <= 1) { el.innerHTML = ""; return; }
-  let html = `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹ Prev</button>`;
-  for (let p = 1; p <= total; p++) {
-    if (total > 7 && Math.abs(p - currentPage) > 2 && p !== 1 && p !== total) {
-      if (p === 2 || p === total - 1) html += `<span style="color:var(--muted);padding:0 .25rem">…</span>`;
-      continue;
-    }
-    html += `<button class="page-btn${p===currentPage?' active':''}" onclick="goPage(${p})">${p}</button>`;
+// ── Consolidated Report ───────────────────────────────────
+
+function renderConsolidatedReport() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const monthData = allData.filter(row => {
+    const rowDate = new Date(row.Date);
+    return row.Date && rowDate.getFullYear() === currentYear && rowDate.getMonth() === currentMonth;
+  });
+
+  document.getElementById("stat-filtered").textContent = monthData.length;
+
+  if (!monthData.length) {
+    document.getElementById("consolidated-table-container").innerHTML =
+      `<div class="state-msg">No data found for the current month.</div>`;
+    return;
   }
-  html += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===total?'disabled':''}>Next ›</button>`;
-  el.innerHTML = html;
-}
 
-function goPage(p) { currentPage = p; renderTable(); }
+  const report = {};
+  const allStatuses = new Set();
 
-function toggleSort(col) {
-  if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
-  applyFilter();
+  monthData.forEach(row => {
+    const agent = row["Agent Name"] || "Unassigned";
+    const status = row["Status"] || "No Status";
+    allStatuses.add(status);
+
+    if (!report[agent]) {
+      report[agent] = { total: 0, statusCounts: {} };
+    }
+    report[agent].total++;
+    report[agent].statusCounts[status] = (report[agent].statusCounts[status] || 0) + 1;
+  });
+
+  const sortedStatuses = Array.from(allStatuses).sort();
+  const agentNames = Object.keys(report).sort();
+
+  const tableHTML = `
+    <table>
+      <thead><tr>
+        <th>Agent Name</th>
+        <th>Total</th>
+        ${sortedStatuses.map(s => `<th>${esc(s)}</th>`).join("")}
+      </tr></thead>
+      <tbody>
+        ${agentNames.map(agent => `
+          <tr>
+            <td>${esc(agent)}</td>
+            <td>${report[agent].total}</td>
+            ${sortedStatuses.map(s => `<td>${report[agent].statusCounts[s] || 0}</td>`).join("")}
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>`;
+  document.getElementById("consolidated-table-container").innerHTML = tableHTML;
 }
 
 // ── Modal ─────────────────────────────────────────────────
@@ -415,16 +402,7 @@ function openAddModal() {
   editRowIndex = null;
   document.getElementById("modal-title").textContent = "Add Row";
   document.getElementById("modal-save-btn").textContent = "Add";
-  buildForm({});
-  document.getElementById("modal-overlay").classList.add("open");
-}
-
-function openEditModal(sheetRow) {
-  editRowIndex = sheetRow;
-  const rowData = allData[sheetRow - 2]; // sheetRow 2 = allData[0]
-  document.getElementById("modal-title").textContent = "Edit Row " + sheetRow;
-  document.getElementById("modal-save-btn").textContent = "Update";
-  buildForm(rowData || {});
+  buildForm({ "Date": getTodayDate() }); // Pre-fill date
   document.getElementById("modal-overlay").classList.add("open");
 }
 
@@ -462,48 +440,11 @@ async function saveModal() {
   } catch (e) { toast("Error: " + e.message, "err"); }
 }
 
-// ── Delete ────────────────────────────────────────────────
-
-async function deleteRow(sheetRow) {
-  if (!confirm(`Delete row ${sheetRow} from the sheet?`)) return;
-  try {
-    const res  = await fetch(API_URL, {
-      method: "POST", redirect: "follow",
-      body: JSON.stringify({ action: "delete", rowIndex: sheetRow })
-    });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.error);
-    toast(json.message, "ok");
-    await fetchData();
-  } catch (e) { toast("Error: " + e.message, "err"); }
-}
-
-// ── CSV Export ────────────────────────────────────────────
-
-function exportCSV() {
-  if (!headers.length) return;
-  const rows = [headers, ...filtered.map(r => headers.map(h => `"${String(r[h]).replace(/"/g,'""')}"`))]
-    .map(r => r.join(",")).join("\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([rows], {type:"text/csv"}));
-  a.download = "app-data-" + Date.now() + ".csv";
-  a.click();
-}
-
 // ── Helpers ───────────────────────────────────────────────
 
-function buildColFilter() {
-  const sel = document.getElementById("col-filter");
-  sel.innerHTML = `<option value="">All columns</option>` +
-    headers.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join("");
-}
-
-function formatCell(val) {
-  if (val === "" || val == null) return `<span style="color:var(--muted)">—</span>`;
-  if (!isNaN(val) && val !== "") return `<span style="font-family:var(--mono)">${Number(val).toLocaleString()}</span>`;
-  const s = String(val);
-  if (s.startsWith("http")) return `<a href="${s}" target="_blank" style="color:var(--accent)">${s.length>40?s.slice(0,40)+'…':s}</a>`;
-  return esc(s);
+function getTodayDate() {
+  const d = new Date();
+  return d.toISOString().split('T')[0]; // YYYY-MM-DD
 }
 
 function setLoading(on) {
@@ -513,7 +454,7 @@ function setLoading(on) {
 }
 
 function setError(msg) {
-  document.getElementById("table-container").innerHTML =
+  document.getElementById("consolidated-table-container").innerHTML =
     `<div class="state-msg" style="color:var(--danger)">${msg}</div>`;
 }
 
@@ -532,6 +473,7 @@ function toast(msg, type) {
 
 // Close modal on overlay click
 document.getElementById("modal-overlay").addEventListener("click", e => {
+  // Close modal only if the dark overlay itself is clicked, not the modal content.
   if (e.target === e.currentTarget) closeModal();
 });
 </script>
