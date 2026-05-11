@@ -138,6 +138,12 @@
   tbody tr:last-child { border-bottom: none; }
   tbody tr:hover { background: rgba(124, 110, 247, .05); }
   tbody td { padding: .7rem 1rem; color: var(--text); word-break: break-word; }
+  tfoot tr {
+    border-top: 2px solid var(--border);
+  }
+  tfoot td {
+    font-weight: 600;
+  }
   .cell-pill {
     display: inline-block; padding: 2px 8px;
     border-radius: 4px; font-family: var(--mono); font-size: .75rem;
@@ -399,6 +405,17 @@ function renderConsolidatedReport() {
 
   const agentNames = Object.keys(report).sort();
 
+  // --- Calculate Totals for all agents (not just the page) ---
+  const totals = { "Grand Total": 0 };
+  REPORT_STATUSES.forEach(s => totals[s] = 0);
+
+  agentNames.forEach(agent => {
+    totals["Grand Total"] += report[agent]["Grand Total"];
+    REPORT_STATUSES.forEach(s => {
+      totals[s] += report[agent][s];
+    });
+  });
+
   // --- Pagination Logic ---
   const start = (reportCurrentPage - 1) * REPORT_PAGE_SIZE;
   const pageAgentNames = agentNames.slice(start, start + REPORT_PAGE_SIZE);
@@ -419,6 +436,13 @@ function renderConsolidatedReport() {
           </tr>
         `).join("") : `<tr><td colspan="${REPORT_HEADERS.length}" class="state-msg">No agents found for this period.</td></tr>`}
       </tbody>
+      <tfoot>
+        <tr>
+          <td><strong>Total</strong></td>
+          ${REPORT_STATUSES.map(s => `<td><strong>${totals[s]}</strong></td>`).join("")}
+          <td><strong>${totals["Grand Total"]}</strong></td>
+        </tr>
+      </tfoot>
     </table>`;
   document.getElementById("consolidated-table-container").innerHTML = tableHTML;
   renderReportPagination(agentNames.length);
