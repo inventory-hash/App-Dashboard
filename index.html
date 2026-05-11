@@ -537,3 +537,24 @@ document.getElementById("modal-overlay").addEventListener("click", e => {
 </script>
 </body>
 </html>
+    </div>
+  </div>
+
+  <!-- Filter Toolbar for Consolidated Report -->
+  <div class="toolbar" style="margin-top: 1rem; margin-bottom: 2rem; gap: 1.5rem;">
+    <div>
+        <label for="start-date-filter" style="font-size:.8rem; color: var(--muted); display: block; margin-bottom: .2rem;">Start Date</label>
+        <input type="date" id="start-date-filter" class="search-box" onchange="onDateRangeChange()" style="flex:0;min-width:160px;padding:.4rem .7rem;">
+    </div>
+    <div>
+        <label for="end-date-filter" style="font-size:.8rem; color: var(--muted); display: block; margin-bottom: .2rem;">End Date</label>
+        <input type="date" id="end-date-filter" class="search-box" onchange="onDateRangeChange()" style="flex:0;min-width:160px;padding:.4rem .7rem;">
+    </div>
+  </div>
+
+  <!-- Consolidated Report -->
+  <h2 id="report-title" style="font-size: 1.2rem; margin-top: 0rem; margin-bottom: 1rem;">Agent Performance Report</h2>
+  <div class="table-wrap">
+    <div id="consolidated-table-container"></div>
+  </div>
+
