@@ -291,8 +291,17 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbz46hQW9QxRqnVYUdLg3BrLzn7KAKTzUM10TqE3iYZWZ-NOeknNglkxV851YkRSakE5vg/exec";
+// Use a predefined list of headers for consistency.
+const PREDEFINED_HEADERS = [
+  "Date",
+  "Restaurant ID",
+  "Restaurant/Kitchen Name",
+  "Contact Number",
+  "Status",
+  "Agent Name"
+];
 let allData   = [];
-let headers   = [];
+let headers   = PREDEFINED_HEADERS;
 let filtered  = [];
 let sortCol   = "";
 let sortAsc   = true;
@@ -301,7 +310,7 @@ const PAGE_SIZE = 20;
 let editRowIndex = null;
 
 // ── Bootstrap ─────────────────────────────────────────────
-document.getElementById("setup-banner").classList.add("hidden");
+buildColFilter();
 fetchData();
 
 // ── Fetch ─────────────────────────────────────────────────
@@ -313,9 +322,13 @@ async function fetchData() {
     const res  = await fetch(API_URL, { redirect: "follow" });
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
-    allData = json.data;
-    headers = allData.length ? Object.keys(allData[0]) : [];
-    buildColFilter();
+
+    // Ensure all rows have all predefined headers.
+    allData = json.data.map(row => {
+      const newRow = {};
+      headers.forEach(h => newRow[h] = row[h] ?? '');
+      return newRow;
+    });
     applyFilter();
     document.getElementById("stat-rows").textContent = allData.length;
     document.getElementById("stat-cols").textContent = headers.length;
@@ -415,7 +428,7 @@ function openAddModal() {
   editRowIndex = null;
   document.getElementById("modal-title").textContent = "Add Row";
   document.getElementById("modal-save-btn").textContent = "Add";
-  buildForm({});
+  buildForm({ "Date": getTodayDate() }); // Pre-fill date
   document.getElementById("modal-overlay").classList.add("open");
 }
 
@@ -521,6 +534,14 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function getTodayDate() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 let toastTimer;
 function toast(msg, type) {
   const el = document.getElementById("toast");
@@ -532,6 +553,7 @@ function toast(msg, type) {
 
 // Close modal on overlay click
 document.getElementById("modal-overlay").addEventListener("click", e => {
+  // Close modal only if the dark overlay itself is clicked, not the modal content.
   if (e.target === e.currentTarget) closeModal();
 });
 </script>
