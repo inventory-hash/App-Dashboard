@@ -272,6 +272,12 @@
   </div>
 
   <div class="pagination" id="pagination"></div>
+
+  <!-- Consolidated Report -->
+  <h2 style="font-size: 1.2rem; margin-top: 3rem; margin-bottom: 1rem;">Agent-wise Report</h2>
+  <div class="table-wrap">
+    <div id="consolidated-table-container"></div>
+  </div>
 </main>
 
 <!-- Add/Edit Modal -->
@@ -329,6 +335,7 @@ async function fetchData() {
       headers.forEach(h => newRow[h] = row[h] ?? '');
       return newRow;
     });
+    renderConsolidatedReport();
     applyFilter();
     document.getElementById("stat-rows").textContent = allData.length;
     document.getElementById("stat-cols").textContent = headers.length;
@@ -422,6 +429,53 @@ function toggleSort(col) {
   applyFilter();
 }
 
+// ── Consolidated Report ───────────────────────────────────
+
+function renderConsolidatedReport() {
+  if (!allData.length) {
+    document.getElementById("consolidated-table-container").innerHTML =
+      `<div class="state-msg">No data available for report.</div>`;
+    return;
+  }
+
+  const report = {};
+  const allStatuses = new Set();
+
+  allData.forEach(row => {
+    const agent = row["Agent Name"] || "Unassigned";
+    const status = row["Status"] || "No Status";
+    allStatuses.add(status);
+
+    if (!report[agent]) {
+      report[agent] = { total: 0, statusCounts: {} };
+    }
+    report[agent].total++;
+    report[agent].statusCounts[status] = (report[agent].statusCounts[status] || 0) + 1;
+  });
+
+  const sortedStatuses = Array.from(allStatuses).sort();
+  const agentNames = Object.keys(report).sort();
+
+  const tableHTML = `
+    <table>
+      <thead><tr>
+        <th>Agent Name</th>
+        <th>Total</th>
+        ${sortedStatuses.map(s => `<th>${esc(s)}</th>`).join("")}
+      </tr></thead>
+      <tbody>
+        ${agentNames.map(agent => `
+          <tr>
+            <td>${esc(agent)}</td>
+            <td>${report[agent].total}</td>
+            ${sortedStatuses.map(s => `<td>${report[agent].statusCounts[s] || 0}</td>`).join("")}
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>`;
+  document.getElementById("consolidated-table-container").innerHTML = tableHTML;
+}
+
 // ── Modal ─────────────────────────────────────────────────
 
 function openAddModal() {
@@ -471,6 +525,7 @@ async function saveModal() {
     if (!json.success) throw new Error(json.error);
     toast(json.message, "ok");
     closeModal();
+    // fetchData will re-render the consolidated report
     await fetchData();
   } catch (e) { toast("Error: " + e.message, "err"); }
 }
@@ -487,6 +542,7 @@ async function deleteRow(sheetRow) {
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
     toast(json.message, "ok");
+    // fetchData will re-render the consolidated report
     await fetchData();
   } catch (e) { toast("Error: " + e.message, "err"); }
 }
