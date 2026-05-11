@@ -1,73 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Smart Stock Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0e0e10;
+    --surface:   #17171a;
+    --card:      #1e1e22;
+    --border:    #2e2e34;
+    --accent:    #7c6ef7;
+    --accent2:   #3ecf8e;
+    --accent3:   #f7a14e;
+    --text:      #e8e8ec;
+    --muted:     #8a8a96;
+    --danger:    #f06060;
+    --mono:      'DM Mono', monospace;
+    --sans:      'Syne', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 1.1rem; font-weight: 700; letter-spacing: -.02em;
+  }
+  .logo-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 12px var(--accent);
+  }
+  .header-meta { font-size: .75rem; font-family: var(--mono); color: var(--muted); }
+  .btn {
+    background: var(--accent); color: #fff; border: none;
+    padding: .5rem 1.1rem; border-radius: 6px; font-family: var(--sans);
+    font-size: .82rem; font-weight: 600; cursor: pointer;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn.secondary {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn.secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.danger { background: var(--danger); }
+
+  /* ── Setup Banner ── */
+  #setup-banner {
+    background: linear-gradient(90deg, #1a1540 0%, #191f2a 100%);
+    border-bottom: 1px solid #2e2e55;
+    padding: 1.25rem 2rem;
+    display: flex; align-items: flex-start; gap: 1rem;
+  }
+  #setup-banner.hidden { display: none; }
+  .setup-icon { font-size: 1.5rem; margin-top: 2px; }
+  .setup-content h3 { font-size: .95rem; font-weight: 600; color: #aca8ff; margin-bottom: .4rem; }
+  .setup-content p  { font-size: .8rem; color: var(--muted); line-height: 1.6; }
+  .setup-url-row { display: flex; gap: 8px; margin-top: .75rem; }
+  #api-url-input {
+    flex: 1; background: #0e0e18; border: 1px solid #3a3a60;
+    color: var(--text); padding: .45rem .75rem; border-radius: 6px;
+    font-family: var(--mono); font-size: .8rem; outline: none;
+  }
+  #api-url-input:focus { border-color: var(--accent); }
+
+  /* ── Main Layout ── */
+  main { padding: 2rem; }
+
+  /* ── Stats Row ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem; margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.25rem;
+    display: flex; flex-direction: column; gap: .3rem;
+  }
+  .stat-label { font-size: .7rem; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .stat-value { font-size: 1.9rem; font-weight: 700; line-height: 1; }
+  .stat-sub   { font-size: .72rem; color: var(--muted); }
+  .c-accent  { color: var(--accent); }
+  .c-green   { color: var(--accent2); }
+  .c-amber   { color: var(--accent3); }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    display: flex; gap: .75rem; align-items: center;
+    margin-bottom: 1.25rem; flex-wrap: wrap;
+  }
+  .search-box {
+    flex: 1; min-width: 200px;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); padding: .5rem .9rem; border-radius: 6px;
+    font-family: var(--sans); font-size: .85rem; outline: none;
+  }
+  .search-box:focus { border-color: var(--accent); }
+  .search-box::placeholder { color: var(--muted); }
+
+  /* ── Table ── */
+  .table-wrap {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  thead th {
+    background: var(--surface); padding: .75rem 1rem;
+    text-align: left; font-weight: 600; font-family: var(--mono);
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); border-bottom: 1px solid var(--border);
+    cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  thead th:hover { color: var(--text); }
+  thead th .sort-icon { margin-left: 4px; opacity: .4; }
+  thead th.active .sort-icon { opacity: 1; color: var(--accent); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(124, 110, 247, .05); }
+  tbody td { padding: .7rem 1rem; color: var(--text); word-break: break-word; }
+  .cell-pill {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 4px; font-family: var(--mono); font-size: .75rem;
+  }
+  .row-num { color: var(--muted); font-family: var(--mono); font-size: .72rem; }
+  .action-cell { display: flex; gap: 6px; }
+  .icon-btn {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); padding: 3px 8px; border-radius: 5px;
+    font-size: .75rem; cursor: pointer; transition: all .15s;
+  }
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .icon-btn.del:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* ── Empty / Loading ── */
+  .state-msg {
+    text-align: center; padding: 3rem 2rem;
+    color: var(--muted); font-size: .9rem;
+  }
+  .spinner {
+    width: 32px; height: 32px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .7s linear infinite; margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Modal ── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 500; opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.75rem; width: 480px; max-width: 95vw;
+    max-height: 80vh; overflow-y: auto;
+  }
+  .modal h2 { font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; }
+  .form-row { margin-bottom: 1rem; }
+  .form-row label { display: block; font-size: .75rem; font-family: var(--mono); color: var(--muted); margin-bottom: .3rem; }
+  .form-row input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); padding: .5rem .75rem; border-radius: 6px;
+    font-size: .85rem; font-family: var(--sans); outline: none;
+  }
+  .form-row input:focus { border-color: var(--accent); }
+  .modal-actions { display: flex; gap: .75rem; margin-top: 1.5rem; justify-content: flex-end; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 999;
+    background: var(--card); border: 1px solid var(--border);
+    padding: .7rem 1.1rem; border-radius: 8px; font-size: .82rem;
+    transition: opacity .3s; opacity: 0; pointer-events: none;
+  }
+  #toast.show { opacity: 1; }
+  #toast.ok   { border-left: 3px solid var(--accent2); }
+  #toast.err  { border-left: 3px solid var(--danger); }
+
+  .pagination { display: flex; gap: .5rem; align-items: center; margin-top: 1.25rem; justify-content: center; }
+  .page-btn   { background: var(--card); border: 1px solid var(--border); color: var(--muted); padding: .35rem .75rem; border-radius: 5px; cursor: pointer; font-size: .82rem; }
+  .page-btn:hover, .page-btn.active { border-color: var(--accent); color: var(--accent); }
+  .page-btn:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    App Data Dashboard
+  </div>
+  <div class="header-meta" id="last-sync">Not synced yet</div>
+  <div style="display:flex;gap:.6rem;">
+    <button class="btn secondary" onclick="openAddModal()">+ Add Row</button>
+    <button class="btn" onclick="fetchData()">↻ Refresh</button>
+  </div>
+</header>
+
+<!-- Setup Banner -->
+<div id="setup-banner">
+  <div class="setup-icon">🔗</div>
+  <div class="setup-content">
+    <h3>Connect your Google Sheet</h3>
+    <p>Paste your Apps Script Web App URL below. Deploy it via <strong>Extensions → Apps Script → Deploy → New deployment → Web App</strong>.<br>Set <em>Execute as: Me</em> and <em>Who has access: Anyone</em>.</p>
+    <div class="setup-url-row">
+      <input id="api-url-input" placeholder="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec" />
+      <button class="btn" onclick="saveApiUrl()">Connect</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<main>
+  <!-- Stats -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Rows</div>
+      <div class="stat-value c-accent" id="stat-rows">—</div>
+      <div class="stat-sub">in "App Data"</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Columns</div>
+      <div class="stat-value c-green" id="stat-cols">—</div>
+      <div class="stat-sub">fields detected</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Filtered</div>
+      <div class="stat-value c-amber" id="stat-filtered">—</div>
+      <div class="stat-sub">rows visible</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input class="search-box" id="search-input" placeholder="Search across all columns…" oninput="applyFilter()" />
+    <select class="search-box" id="col-filter" style="flex:0;min-width:140px;" onchange="applyFilter()">
+      <option value="">All columns</option>
+    </select>
+    <button class="btn secondary" onclick="exportCSV()">⬇ Export CSV</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div id="table-container">
+      <div class="state-msg">
+        <div>Enter your API URL above and click <strong>Connect</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pagination" id="pagination"></div>
+</main>
+
+<!-- Add/Edit Modal -->
+<div class="overlay" id="modal-overlay">
+  <div class="modal">
+    <h2 id="modal-title">Add Row</h2>
+    <div id="modal-form"></div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn" id="modal-save-btn" onclick="saveModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbz46hQW9QxRqnVYUdLg3BrLzn7KAKTzUM10TqE3iYZWZ-NOeknNglkxV851YkRSakE5vg/exec";
 let allData   = [];
-// Use a predefined list of headers for consistency.
-const PREDEFINED_HEADERS = [
-  "Date",
-  "Restaurant ID",
-  "Restaurant/Kitchen Name",
-  "Contact Number",
-  "Status",
-  "Agent Name"
-];
-// Define the exact statuses we want to see in the report.
-const REPORT_STATUSES = [
-  "Installed",
-  "Installed But Not Use",
-  "Not Installed"
-];
-// The headers for our new consolidated report table.
-const REPORT_HEADERS = ["Agent Name", ...REPORT_STATUSES, "Grand Total"];
-let headers   = PREDEFINED_HEADERS;
-let filtered  = []; // For main table
-let sortCol   = ""; // For main table
-let sortAsc   = true; // For main table
-let currentPage = 1; // For main table
-const PAGE_SIZE = 20; // For main table
+let headers   = [];
+let filtered  = [];
+let sortCol   = "";
+let sortAsc   = true;
+let currentPage = 1;
+const PAGE_SIZE = 20;
 let editRowIndex = null;
-let reportCurrentPage = 1; // For consolidated report
-const REPORT_PAGE_SIZE = 15; // For consolidated report
 
 // ── Bootstrap ─────────────────────────────────────────────
 document.getElementById("setup-banner").classList.add("hidden");
-const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const now = new Date();
-const currentMonthValue = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-document.getElementById("month-filter").value = currentMonthValue;
 fetchData();
 
 // ── Fetch ─────────────────────────────────────────────────
 
 async function fetchData() {
   if (!API_URL) return;
-  setLoading(true); // For main table
+  setLoading(true);
   try {
     const res  = await fetch(API_URL, { redirect: "follow" });
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
-
-    // Ensure all rows have all predefined headers.
-    allData = json.data.map(row => {
-      const newRow = {};
-      PREDEFINED_HEADERS.forEach(h => newRow[h] = row[h] ?? '');
-      return newRow;
-    });
-    headers = PREDEFINED_HEADERS; // Ensure headers are always predefined
-
-    buildColFilter(); // For main table
-    applyFilter(); // For main table
-    renderConsolidatedReport(); // For consolidated report
-
+    allData = json.data;
+    headers = allData.length ? Object.keys(allData[0]) : [];
+    buildColFilter();
+    applyFilter();
     document.getElementById("stat-rows").textContent = allData.length;
     document.getElementById("stat-cols").textContent = headers.length;
     document.getElementById("last-sync").textContent =
       "Synced " + new Date().toLocaleTimeString();
   } catch (e) {
-    setError("Failed to fetch data: " + e.message); // For main table
+    setError("Failed to fetch data: " + e.message);
   }
 }
 
-// ── Filter & Sort (Main Table) ──────────────────────────
+// ── Filter & Sort ─────────────────────────────────────────
 
 function applyFilter() {
   const q   = document.getElementById("search-input").value.toLowerCase();
@@ -90,7 +349,7 @@ function applyFilter() {
   renderTable();
 }
 
-// ── Render (Main Table) ──────────────────────────────────
+// ── Render ────────────────────────────────────────────────
 
 function renderTable() {
   const start = (currentPage - 1) * PAGE_SIZE;
@@ -150,130 +409,13 @@ function toggleSort(col) {
   applyFilter();
 }
 
-// ── Consolidated Report ───────────────────────────────────
-
-function onMonthChange() {
-  reportCurrentPage = 1; // Reset to first page on month change
-  renderConsolidatedReport();
-}
-
-function renderConsolidatedReport() {
-  const monthValue = document.getElementById("month-filter").value;
-  if (!monthValue) {
-    document.getElementById("consolidated-table-container").innerHTML = `<div class="state-msg">Please select a month.</div>`;
-    document.getElementById("report-pagination").innerHTML = "";
-    return;
-  }
-  const [selectedYear, selectedMonth] = monthValue.split('-').map(Number);
-
-  const monthData = allData.filter(row => {
-    const rowDate = new Date(row.Date);
-    return row.Date && rowDate.getFullYear() === selectedYear && rowDate.getMonth() === (selectedMonth - 1);
-  });
-
-  // document.getElementById("stat-filtered").textContent = monthData.length; // This stat card is for the main table now
-
-  if (!monthData.length) {
-    document.getElementById("consolidated-table-container").innerHTML =
-      `<div class="state-msg">No data found for the selected month.</div>`;
-    document.getElementById("report-title").textContent = `Agent-wise Report for ${monthNames[selectedMonth - 1]} ${selectedYear}`;
-    document.getElementById("report-pagination").innerHTML = "";
-    return;
-  }
-
-  const report = {};
-
-  monthData.forEach(row => {
-    const agent = row["Agent Name"] || "Unassigned";
-    const status = row["Status"];
-
-    if (!report[agent]) {
-      // Initialize a new agent entry with all status counts at 0.
-      report[agent] = { "Grand Total": 0 };
-      REPORT_STATUSES.forEach(s => report[agent][s] = 0);
-    }
-
-    // If the row's status is one we're tracking, increment its count.
-    if (REPORT_STATUSES.includes(status)) {
-      report[agent][status]++;
-    }
-    // Always increment the grand total for the agent.
-    report[agent]["Grand Total"]++;
-  });
-
-  const agentNames = Object.keys(report).sort();
-
-  // --- Calculate Totals for all agents (not just the page) ---
-  const totals = { "Grand Total": 0 };
-  REPORT_STATUSES.forEach(s => totals[s] = 0);
-
-  agentNames.forEach(agent => {
-    totals["Grand Total"] += report[agent]["Grand Total"];
-    REPORT_STATUSES.forEach(s => {
-      totals[s] += report[agent][s];
-    });
-  });
-
-  // --- Pagination Logic ---
-  const start = (reportCurrentPage - 1) * REPORT_PAGE_SIZE;
-  const pageAgentNames = agentNames.slice(start, start + REPORT_PAGE_SIZE);
-  // --- End Pagination Logic ---
-  document.getElementById("report-title").textContent = `Agent-wise Report for ${monthNames[selectedMonth - 1]} ${selectedYear}`;
-
-  const tableHTML = `
-    <table>
-      <thead><tr>
-        ${REPORT_HEADERS.map(h => `<th>${esc(h)}</th>`).join("")}
-      </tr></thead>
-      <tbody>
-        ${pageAgentNames.length ? pageAgentNames.map(agent => `
-          <tr>
-            <td>${esc(agent)}</td>
-            ${REPORT_STATUSES.map(s => `<td>${report[agent][s] || 0}</td>`).join("")}
-            <td>${report[agent]["Grand Total"]}</td>
-          </tr>
-        `).join("") : `<tr><td colspan="${REPORT_HEADERS.length}" class="state-msg">No agents found for this period.</td></tr>`}
-      </tbody>
-      <tfoot>
-        <tr>
-          <td><strong>Total</strong></td>
-          ${REPORT_STATUSES.map(s => `<td><strong>${totals[s]}</strong></td>`).join("")}
-          <td><strong>${totals["Grand Total"]}</strong></td>
-        </tr>
-      </tfoot>
-    </table>`;
-  document.getElementById("consolidated-table-container").innerHTML = tableHTML;
-  renderReportPagination(agentNames.length);
-}
-
-function renderReportPagination(totalItems) {
-  const total = Math.ceil(totalItems / REPORT_PAGE_SIZE);
-  const el    = document.getElementById("report-pagination");
-  if (total <= 1) { el.innerHTML = ""; return; }
-  let html = `<button class="page-btn" onclick="goReportPage(${reportCurrentPage-1})" ${reportCurrentPage===1?'disabled':''}>‹ Prev</button>`;
-  for (let p = 1; p <= total; p++) {
-    if (total > 7 && Math.abs(p - reportCurrentPage) > 2 && p !== 1 && p !== total) {
-      if (p === 2 || p === total - 1) html += `<span style="color:var(--muted);padding:0 .25rem">…</span>`;
-      continue;
-    }
-    html += `<button class="page-btn${p===reportCurrentPage?' active':''}" onclick="goReportPage(${p})">${p}</button>`;
-  }
-  html += `<button class="page-btn" onclick="goReportPage(${reportCurrentPage+1})" ${reportCurrentPage===total?'disabled':''}>Next ›</button>`;
-  el.innerHTML = html;
-}
-
-function goReportPage(p) {
-  reportCurrentPage = p;
-  renderConsolidatedReport();
-}
-
 // ── Modal ─────────────────────────────────────────────────
 
 function openAddModal() {
   editRowIndex = null;
   document.getElementById("modal-title").textContent = "Add Row";
   document.getElementById("modal-save-btn").textContent = "Add";
-  buildForm({}); // Reverted to generic form
+  buildForm({});
   document.getElementById("modal-overlay").classList.add("open");
 }
 
@@ -316,11 +458,11 @@ async function saveModal() {
     if (!json.success) throw new Error(json.error);
     toast(json.message, "ok");
     closeModal();
-    await fetchData(); // Refresh both tables
+    await fetchData();
   } catch (e) { toast("Error: " + e.message, "err"); }
 }
 
-// ── Delete (Main Table) ───────────────────────────────────
+// ── Delete ────────────────────────────────────────────────
 
 async function deleteRow(sheetRow) {
   if (!confirm(`Delete row ${sheetRow} from the sheet?`)) return;
@@ -332,11 +474,11 @@ async function deleteRow(sheetRow) {
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
     toast(json.message, "ok");
-    await fetchData(); // Refresh both tables
+    await fetchData();
   } catch (e) { toast("Error: " + e.message, "err"); }
 }
 
-// ── CSV Export (Main Table) ───────────────────────────────
+// ── CSV Export ────────────────────────────────────────────
 
 function exportCSV() {
   if (!headers.length) return;
@@ -362,11 +504,6 @@ function formatCell(val) {
   const s = String(val);
   if (s.startsWith("http")) return `<a href="${s}" target="_blank" style="color:var(--accent)">${s.length>40?s.slice(0,40)+'…':s}</a>`;
   return esc(s);
-}
-
-function getTodayDate() {
-  const d = new Date();
-  return d.toISOString().split('T')[0]; // YYYY-MM-DD
 }
 
 function setLoading(on) {
@@ -395,23 +532,8 @@ function toast(msg, type) {
 
 // Close modal on overlay click
 document.getElementById("modal-overlay").addEventListener("click", e => {
-  // Close modal only if the dark overlay itself is clicked, not the modal content.
   if (e.target === e.currentTarget) closeModal();
 });
-
-/* Add/Edit Modal (moved to bottom for better organization) */
-document.write(`
-<div class="overlay" id="modal-overlay">
-  <div class="modal">
-    <h2 id="modal-title">Add Row</h2>
-    <div id="modal-form"></div>
-    <div class="modal-actions">
-      <button class="btn secondary" onclick="closeModal()">Cancel</button>
-      <button class="btn" id="modal-save-btn" onclick="saveModal()">Save</button>
-    </div>
-  </div>
-</div>
-`);
 </script>
 </body>
 </html>
