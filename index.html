@@ -301,8 +301,18 @@ const PREDEFINED_HEADERS = [
   "Agent Name"
 ];
 let allData   = [];
+// Define the exact statuses we want to see in the report.
+const REPORT_STATUSES = [
+  "Installed",
+  "Installed But Not Use",
+  "Not Installed"
+];
+// The headers for our new consolidated report table.
+const REPORT_HEADERS = ["Agent Name", ...REPORT_STATUSES, "Grand Total"];
 let headers   = PREDEFINED_HEADERS;
 let editRowIndex = null;
+let reportCurrentPage = 1;
+const REPORT_PAGE_SIZE = 15;
 
 // ── Bootstrap ─────────────────────────────────────────────
 document.getElementById("setup-banner").classList.add("hidden");
@@ -355,45 +365,76 @@ function renderConsolidatedReport() {
   if (!monthData.length) {
     document.getElementById("consolidated-table-container").innerHTML =
       `<div class="state-msg">No data found for the current month.</div>`;
+    document.getElementById("report-pagination").innerHTML = "";
     return;
   }
 
   const report = {};
-  const allStatuses = new Set();
 
   monthData.forEach(row => {
     const agent = row["Agent Name"] || "Unassigned";
-    const status = row["Status"] || "No Status";
-    allStatuses.add(status);
+    const status = row["Status"];
 
     if (!report[agent]) {
-      report[agent] = { total: 0, statusCounts: {} };
+      // Initialize a new agent entry with all status counts at 0.
+      report[agent] = { "Grand Total": 0 };
+      REPORT_STATUSES.forEach(s => report[agent][s] = 0);
     }
-    report[agent].total++;
-    report[agent].statusCounts[status] = (report[agent].statusCounts[status] || 0) + 1;
+
+    // If the row's status is one we're tracking, increment its count.
+    if (REPORT_STATUSES.includes(status)) {
+      report[agent][status]++;
+    }
+    // Always increment the grand total for the agent.
+    report[agent]["Grand Total"]++;
   });
 
-  const sortedStatuses = Array.from(allStatuses).sort();
   const agentNames = Object.keys(report).sort();
+
+  // --- Pagination Logic ---
+  const start = (reportCurrentPage - 1) * REPORT_PAGE_SIZE;
+  const pageAgentNames = agentNames.slice(start, start + REPORT_PAGE_SIZE);
+  // --- End Pagination Logic ---
 
   const tableHTML = `
     <table>
       <thead><tr>
-        <th>Agent Name</th>
-        <th>Total</th>
-        ${sortedStatuses.map(s => `<th>${esc(s)}</th>`).join("")}
+        ${REPORT_HEADERS.map(h => `<th>${esc(h)}</th>`).join("")}
       </tr></thead>
       <tbody>
-        ${agentNames.map(agent => `
+        ${pageAgentNames.length ? pageAgentNames.map(agent => `
           <tr>
             <td>${esc(agent)}</td>
-            <td>${report[agent].total}</td>
-            ${sortedStatuses.map(s => `<td>${report[agent].statusCounts[s] || 0}</td>`).join("")}
+            ${REPORT_STATUSES.map(s => `<td>${report[agent][s] || 0}</td>`).join("")}
+            <td>${report[agent]["Grand Total"]}</td>
           </tr>
-        `).join("")}
+        `).join("") : `<tr><td colspan="${REPORT_HEADERS.length}" class="state-msg">No agents found for this period.</td></tr>`}
       </tbody>
     </table>`;
   document.getElementById("consolidated-table-container").innerHTML = tableHTML;
+  renderReportPagination(agentNames.length);
+}
+
+function renderReportPagination(totalItems) {
+  const total = Math.ceil(totalItems / REPORT_PAGE_SIZE);
+  const el    = document.getElementById("report-pagination");
+  if (total <= 1) { el.innerHTML = ""; return; }
+  let html = `<button class="page-btn" onclick="goReportPage(${reportCurrentPage-1})" ${reportCurrentPage===1?'disabled':''}>‹ Prev</button>`;
+  for (let p = 1; p <= total; p++) {
+    if (total > 7 && Math.abs(p - reportCurrentPage) > 2 && p !== 1 && p !== total) {
+      if (p === 2 || p === total - 1) html += `<span style="color:var(--muted);padding:0 .25rem">…</span>`;
+      continue;
+    }
+    html += `<button class="page-btn${p===reportCurrentPage?' active':''}" onclick="goReportPage(${p})">${p}</button>`;
+  }
+  html += `<button class="page-btn" onclick="goReportPage(${reportCurrentPage+1})" ${reportCurrentPage===total?'disabled':''}>Next ›</button>`;
+  el.innerHTML = html;
+}
+
+function goReportPage(p) {
+  reportCurrentPage = p;
+  // We don't need to re-fetch data, just re-render the report table
+  renderConsolidatedReport();
 }
 
 // ── Modal ─────────────────────────────────────────────────
