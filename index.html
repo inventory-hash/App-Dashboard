@@ -251,24 +251,22 @@
       <div class="stat-value c-amber" id="stat-filtered">—</div>
       <div class="stat-sub">rows visible</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-label">Report Period</div>
-      <div class="stat-value c-amber" id="stat-period" style="font-size: 1.4rem;">—</div>
-      <div class="stat-sub">Current Month</div>
-    </div>
+  </div>
+
+  <!-- Filter Toolbar -->
+  <div class="toolbar" style="margin-top: 1rem;">
+    <label for="month-filter" style="font-size:.8rem; color: var(--muted);">Report Month</label>
+    <input type="month" id="month-filter" class="search-box" onchange="onMonthChange()" style="flex:0;min-width:180px;padding:.4rem .7rem;">
   </div>
 
   <!-- Table -->
   <div class="table-wrap">
     <div id="table-container">
-      <div class="state-msg">
-        <div>Enter your API URL above and click <strong>Connect</strong></div>
-      </div>
     </div>
   </div>
 
   <!-- Consolidated Report -->
-  <h2 style="font-size: 1.2rem; margin-top: 2rem; margin-bottom: 1rem;">Agent-wise Report (Current Month)</h2>
+  <h2 id="report-title" style="font-size: 1.2rem; margin-top: 2rem; margin-bottom: 1rem;">Agent-wise Report</h2>
   <div class="table-wrap">
     <div id="consolidated-table-container"></div>
   </div>
@@ -317,8 +315,9 @@ const REPORT_PAGE_SIZE = 15;
 // ── Bootstrap ─────────────────────────────────────────────
 document.getElementById("setup-banner").classList.add("hidden");
 const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const currentMonthName = monthNames[new Date().getMonth()];
-document.getElementById("stat-period").textContent = currentMonthName;
+const now = new Date();
+const currentMonthValue = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+document.getElementById("month-filter").value = currentMonthValue;
 fetchData();
 
 // ── Fetch ─────────────────────────────────────────────────
@@ -350,14 +349,22 @@ async function fetchData() {
 
 // ── Consolidated Report ───────────────────────────────────
 
+function onMonthChange() {
+  reportCurrentPage = 1; // Reset to first page on month change
+  renderConsolidatedReport();
+}
+
 function renderConsolidatedReport() {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
+  const monthValue = document.getElementById("month-filter").value;
+  if (!monthValue) {
+    document.getElementById("consolidated-table-container").innerHTML = `<div class="state-msg">Please select a month.</div>`;
+    return;
+  }
+  const [selectedYear, selectedMonth] = monthValue.split('-').map(Number);
 
   const monthData = allData.filter(row => {
     const rowDate = new Date(row.Date);
-    return row.Date && rowDate.getFullYear() === currentYear && rowDate.getMonth() === currentMonth;
+    return row.Date && rowDate.getFullYear() === selectedYear && rowDate.getMonth() === (selectedMonth - 1);
   });
 
   document.getElementById("stat-filtered").textContent = monthData.length;
@@ -365,6 +372,7 @@ function renderConsolidatedReport() {
   if (!monthData.length) {
     document.getElementById("consolidated-table-container").innerHTML =
       `<div class="state-msg">No data found for the current month.</div>`;
+    document.getElementById("report-title").textContent = `Agent-wise Report for ${monthNames[selectedMonth - 1]} ${selectedYear}`;
     document.getElementById("report-pagination").innerHTML = "";
     return;
   }
@@ -395,6 +403,7 @@ function renderConsolidatedReport() {
   const start = (reportCurrentPage - 1) * REPORT_PAGE_SIZE;
   const pageAgentNames = agentNames.slice(start, start + REPORT_PAGE_SIZE);
   // --- End Pagination Logic ---
+  document.getElementById("report-title").textContent = `Agent-wise Report for ${monthNames[selectedMonth - 1]} ${selectedYear}`;
 
   const tableHTML = `
     <table>
